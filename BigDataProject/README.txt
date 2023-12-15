@@ -1,7 +1,5 @@
 Steps to run Static Part
-Log-in into the cluster
-Write - $SPARK_HOME/bin/spark-shell --packages com.databricks:spark-csv_2.10:1.5.0
-Now copy and paste the program from file StaticRecommendation.scala 
+Enter command code: scala StaticRecommendation.scala 
 
 Program will ask for command line input:
 
