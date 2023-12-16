@@ -4,7 +4,8 @@ yelp_academic_dataset_review.csv
 yelp_academic_dataset_tip.csv
 
 # Include .DS_Store files from macOS
-!.DS_Store
+.DS_Store
+.idea
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
