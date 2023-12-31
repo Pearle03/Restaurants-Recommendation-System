@@ -2,6 +2,7 @@
 yelp_academic_dataset_business.csv
 yelp_academic_dataset_review.csv
 yelp_academic_dataset_tip.csv
+yelp_academic_dataset_checkin.csv
 
 # Include .DS_Store files from macOS
 .DS_Store

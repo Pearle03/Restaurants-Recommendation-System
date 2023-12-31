@@ -30,7 +30,7 @@ def remap_to_es_format(rec):
         return None
     location = f"{rec['latitude']},{rec['longitude']}"
     return {
-        "businessId": rec["Business_Id"],
+        "businessId": rec["business_id"],
         "name": rec["name"],
         "full_address": rec["full_address"],
         "categories": rec["categories"],
