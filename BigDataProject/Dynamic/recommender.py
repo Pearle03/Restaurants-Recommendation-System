@@ -9,7 +9,7 @@ def read_and_filter_elasticsearch(sc, category_user):
         inputFormatClass="org.elasticsearch.hadoop.mr.EsInputFormat",
         keyClass="org.apache.hadoop.io.NullWritable",
         valueClass="org.elasticsearch.hadoop.mr.LinkedMapWritable",
-        conf={"es.resource": "yelpraw/resturant", "es.query": es_query}
+        conf={"es.resource": "yelpraw/restaurant", "es.query": es_query}
     )
     return rdd
 
@@ -43,8 +43,8 @@ def distance(origin, destination):
     radius = 6371  # km
     dlat = math.radians(destination[0] - origin[0])
     dlon = math.radians(destination[1] - origin[1])
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(origin[0])) * math.cos(math.radians(destination[0])) * math.sin(
-        dlon / 2) ** 2
+    a = (math.sin(dlat / 2) ** 2 + math.cos(math.radians(origin[0]))
+         * math.cos(math.radians(destination[0])) * math.sin(dlon / 2) ** 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return radius * c
 
