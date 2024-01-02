@@ -3,12 +3,11 @@ Enter command code: scala StaticRecommendation.scala
 
 Program will ask for command line input:
 
-Enter type of Food: Indian
-Enter City: Pittsburgh
-Enter State: PA
-Enter User ID: Fr12lvqUHN6dmMysQ
-
-Based on your search, the top 5 Restaurants will be displayed.
+	Enter type of Food: Indian </br>
+	Enter City: Pittsburgh </br>
+	Enter State: PA </br>
+	Enter User ID: Fr12lvqUHN6dmMysQ
+Based on your search, the top 5 Restaurants will be displayed
 ----------------------------
 
 
