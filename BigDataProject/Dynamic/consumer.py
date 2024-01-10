@@ -1,73 +1,78 @@
-import findspark
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json
-from pyspark.sql.types import StringType
+import os
+
 from elasticsearch import Elasticsearch
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import from_json, col
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType
+from pyspark.sql.utils import AnalysisException
 
-# Initialize findspark to make Spark available in the Python environment
-findspark.init()
-
-# Constants for Kafka and Elasticsearch configurations
-KAFKA_TOPIC = 'yelp-stream'  # Kafka topic to subscribe to
-KAFKA_BROKER = 'localhost:9092'  # Address of the Kafka broker
-ES_INDEX = 'yelpraw'  # Elasticsearch index name
-ES_TYPE = 'restaurant'  # Type within the Elasticsearch index
-ES_RESOURCE = f'{ES_INDEX}/{ES_TYPE}'  # Full resource path for Elasticsearch
+os.environ['PYSPARK_SUBMIT_ARGS'] = ('--packages org.apache.spark:spark-streaming-kafka-0-10_2.12:3.5.0,'
+                                     'org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,'
+                                     'org.elasticsearch:elasticsearch-spark-30_2.12:8.11.3 pyspark-shell')
 
 # Initialize Elasticsearch client
-es = Elasticsearch(["http://localhost:9200"])
+es = Elasticsearch("http://localhost:9200")
 
 
-def write_to_elasticsearch(df):
-    """
-    Writes a Spark DataFrame to Elasticsearch.
-    Args:
-        df (DataFrame): DataFrame to write to Elasticsearch
-    """
-    # Convert DataFrame to RDD for writing to Elasticsearch
-    rdd = df.rdd
+def remap_elastic(rec):
+    # Assuming 'rec' is a dictionary representing the JSON object
+    # The key could be a document ID or a constant if the ID is included in the record itself
+    content = ('key', rec)
+    return content
 
-    # Check if RDD is not empty and then proceed to write to Elasticsearch
-    if not rdd.isEmpty():
-        try:
-            rdd.saveAsNewAPIHadoopFile(path='-',
-                                       outputFormatClass="org.elasticsearch.hadoop.mr.EsOutputFormat",
-                                       keyClass="org.apache.hadoop.io.NullWritable",
-                                       valueClass="org.elasticsearch.hadoop.mr.LinkedMapWritable",
-                                       conf={"es.resource": ES_RESOURCE})
-        except Exception as e:
-            print(f"Error writing to Elasticsearch: {e}")
+
+def writeElasticSearch(df, epoch_id):
+    try:
+        df.write.format("org.elasticsearch.spark.sql") \
+            .option("es.resource", "yelpraw/restaurant") \
+            .mode("append") \
+            .save()
+    except Exception as e:
+        print(f"Error writing to Elasticsearch: {e}")
 
 
 def main():
-    """
-    Main function to read data from Kafka and write to Elasticsearch.
-    """
-    # Initialize SparkSession for the application
-    spark = SparkSession.builder \
-        .appName("YelpConsumer") \
-        .master("local[2]") \
-        .getOrCreate()
+    try:
+        # Configure Spark
+        spark = SparkSession.builder \
+            .appName("YelpConsumer") \
+            .getOrCreate()
 
-    # Read streaming data from Kafka
-    kafka_df = spark.readStream \
-        .format("kafka") \
-        .option("kafka.bootstrap.servers", KAFKA_BROKER) \
-        .option("subscribe", KAFKA_TOPIC) \
-        .load()
+        spark.conf.set("es.nodes.wan.only", "false")
 
-    # Parse the JSON data from Kafka and convert it to DataFrame
-    parsed_df = kafka_df.selectExpr("CAST(value AS STRING)").select(from_json(col("value"), StringType()).alias("json"))
+        # Define the schema of the data
+        schema = StructType([
+            StructField("business_id", StringType(), True),
+            StructField("full_address", StringType(), True),
+            StructField("stars", StringType(), True),
+            StructField("categories", StringType(), True),
+            StructField("name", StringType(), True),
+            StructField("latitude", DoubleType(), True),
+            StructField("longitude", DoubleType(), True),
+            StructField("text", StringType(), True)
+        ])
 
-    # Process each batch of data and write it to Elasticsearch
-    query = parsed_df.writeStream \
-        .foreachBatch(write_to_elasticsearch) \
-        .start()
+        # Create Kafka Direct Stream
+        df = spark \
+            .readStream \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", "localhost:9092") \
+            .option("subscribe", "yelp-stream") \
+            .load()
 
-    # Await termination of the query to keep the application running
-    query.awaitTermination()
+        # Parse JSON data and write to Elasticsearch
+        parsed_df = df.select(from_json(col("value").cast("string"), schema).alias("parsed_value"))
+
+        parsed_df.writeStream.foreachBatch(writeElasticSearch).start()
+
+        # Start the Spark Streaming Context
+        spark.streams.awaitAnyTermination()
+
+    except AnalysisException as e:
+        print(f"Error reading from Kafka or parsing JSON data: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 
 if __name__ == '__main__':
-    # Execute the main function when the script is run
     main()
